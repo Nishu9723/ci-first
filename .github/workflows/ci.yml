@@ -1,32 +1,79 @@
-name: Python CI Pipeline
 
-# Trigger the pipeline whenever code is pushed
-# or a pull request is created
+name: CI CD Pipeline with Manual Approval
+
 on:
   push:
-  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  build-and-test:
+
+  # JOB 1: Build and Test
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Download repository code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Install Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      # Step 3: Install dependencies
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
           pip install pytest
 
-      # Step 4: Run automated tests
-      - name: Run tests
+      - name: Run automated tests
         run: pytest
+
+      - name: Package application
+        run: |
+          mkdir package
+          cp app.py package/
+          zip -r application.zip package
+
+      - name: Upload application artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-application
+          path: application.zip
+
+  # JOB 2: Deploy to Staging
+  staging:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Download application
+        uses: actions/download-artifact@v4
+        with:
+          name: python-application
+
+      - name: Deploy to Staging
+        run: |
+          echo "Application deployed to STAGING"
+          unzip -l application.zip
+
+  # JOB 3: Manual Approval and Production Deployment
+  production:
+    needs: staging
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Download application
+        uses: actions/download-artifact@v4
+        with:
+          name: python-application
+
+      - name: Deploy to Production
+        run: |
+          echo "Application deployed to PRODUCTION"
+          unzip -l application.zip
+
+      - name: Deployment successful
+        run: echo "Production deployment completed!"
